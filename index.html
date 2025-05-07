@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>HRMS - Login and Employee Management</title>
+<style>
+  body, html {
+    margin:0; padding:0; height:100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: url('https://images.pexels.com/photos/3184424/pexels-photo-3184424.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940') no-repeat center center fixed;
+    background-size: cover;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    user-select: none;
+  }
+  #app {
+    background: rgba(255 255 255 / 0.95);
+    width: 350px;
+    max-height: 600px;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  h1 {
+    margin: 0;
+    padding: 20px;
+    text-align: center;
+    font-weight: 700;
+    color: #2980b9;
+    border-bottom: 1px solid #ddd;
+  }
+  #login-section, #employee-section {
+    padding: 20px;
+    flex-grow: 1;
+    display: none;
+    flex-direction: column;
+  }
+  #login-section.active, #employee-section.active {
+    display: flex;
+  }
+  label {
+    margin-top: 10px;
+    font-weight: 600;
+  }
+  input {
+    margin-top: 5px;
+    padding: 8px;
+    font-size: 1rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    outline: none;
+  }
+  input:focus {
+    border-color: #2980b9;
+  }
+  button {
+    margin-top: 20px;
+    padding: 12px;
+    font-weight: 700;
+    font-size: 1rem;
+    background-color: #2980b9;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.3s ease;
+  }
+  button:hover:not(:disabled) {
+    background-color: #21618c;
+  }
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  #error-msg {
+    color: #c0392b;
+    margin-top: 10px;
+    height: 1.2em;
+    text-align: center;
+  }
+  #employee-list {
+    margin-top: 10px;
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+  .employee {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+  }
+  .employee-info {
+    display: flex;
+    flex-direction: column;
+  }
+  .employee-name {
+    font-weight: 700;
+    color: #2c3e50;
+  }
+  .employee-role {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+  }
+  .emp-btn {
+    background: #e74c3c;
+    border: none;
+    padding: 6px 10px;
+    color: white;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.3s ease;
+  }
+  .emp-btn:hover {
+    background: #c0392b;
+  }
+  #add-form {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+  }
+</style>
+</head>
+<body>
+  <main id="app" aria-label="Human Resource Management System">
+    <h1>HRMS</h1>
+
+    <section id="login-section" aria-label="Login form" class="active">
+      <label for="username">Username</label>
+    <input id="username" type="text" autocomplete="username" />
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="current-password" />
+      <button id="login-btn">Login</button>
+      <div id="error-msg" role="alert" aria-live="assertive"></div>
+    </section>
+
+    <section id="employee-section" aria-label="Employee management" tabindex="-1">
+      <button id="logout-btn" aria-label="Logout">Logout</button>
+      <div id="employee-list" aria-live="polite" aria-relevant="additions removals"></div>
+      <form id="add-form" aria-label="Add a new employee">
+        <input id="emp-name" placeholder="Full Name" required autocomplete="off"/>
+        <input type="email" id="emp-email" placeholder="Email" required autocomplete="off"/>
+        <input id="emp-role" placeholder="Role" required autocomplete="off"/>
+        <button type="submit">Add Employee</button>
+      </form>
+    </section>
+  </div>
+
+<script>
+  const backendUrl = 'http://localhost:3000/api';
+  const loginSection = document.getElementById('login-section');
+  const employeeSection = document.getElementById('employee-section');
+  const errorMsg = document.getElementById('error-msg');
+
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
+  const loginBtn = document.getElementById('login-btn');
+
+  const employeeList = document.getElementById('employee-list');
+  const addForm = document.getElementById('add-form');
+  const empName = document.getElementById('emp-name');
+  const empEmail = document.getElementById('emp-email');
+  const empRole = document.getElementById('emp-role');
+  const logoutBtn = document.getElementById('logout-btn');
+
+  function showLogin() {
+    loginSection.classList.add('active');
+    employeeSection.classList.remove('active');
+    errorMsg.textContent = '';
+    usernameInput.focus();
+  }
+  function showEmployee() {
+    employeeSection.classList.add('active');
+    loginSection.classList.remove('active');
+    empName.focus();
+    loadEmployees();
+  }
+
+  async function checkSession(){
+    try {
+      const res = await fetch(backendUrl + '/session', { credentials: 'include' });
+      if(!res.ok) throw new Error();
+      showEmployee();
+    } catch {
+      showLogin();
+    }
+  }
+
+  loginBtn.onclick = async () => {
+    errorMsg.textContent = '';
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    if(!username || !password){
+      errorMsg.textContent = 'Please enter username and password.';
+      return;
+    }
+    try {
+      const res = await fetch(backendUrl + '/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({ username, password })
+      });
+      if(!res.ok) throw new Error();
+      showEmployee();
+    } catch {
+      errorMsg.textContent = 'Invalid username or password.';
+    }
+  };
+
+  logoutBtn.onclick = async () => {
+    await fetch(backendUrl + '/logout', { method: 'POST', credentials: 'include' });
+    showLogin();
+  };
+
+  async function loadEmployees(){
+    employeeList.textContent = 'Loading...';
+    try {
+      const res = await fetch(backendUrl + '/employees', { credentials: 'include' });
+      if(!res.ok) throw new Error();
+      const employees = await res.json();
+      if(employees.length === 0){
+        employeeList.textContent = 'No employees found.';
+        return;
+      }
+      employeeList.textContent = '';
+      employees.forEach(emp => {
+        const empDiv = document.createElement('div');
+        empDiv.className = 'employee';
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'employee-info';
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'employee-name';
+        nameDiv.textContent = emp.name;
+        const roleDiv = document.createElement('div');
+        roleDiv.className = 'employee-role';
+        roleDiv.textContent = emp.role;
+
+        infoDiv.appendChild(nameDiv);
+        infoDiv.appendChild(roleDiv);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'emp-btn';
+        delBtn.textContent = 'Delete';
+        delBtn.onclick = async () => {
+          if(confirm(`Delete employee ${emp.name}?`)){
+            await fetch(backendUrl + '/employees/' + emp.id, {
+              method: 'DELETE',
+              credentials: 'include'
+            });
+            loadEmployees();
+          }
+        };
+
+        empDiv.appendChild(infoDiv);
+        empDiv.appendChild(delBtn);
+        employeeList.appendChild(empDiv);
+      });
+    } catch {
+      employeeList.textContent = 'Failed to load employees.';
+    }
+  }
+
+  addForm.onsubmit = async e => {
+    e.preventDefault();
+    const name = empName.value.trim();
+    const email = empEmail.value.trim();
+    const role = empRole.value.trim();
+    if(!name || !email || !role) return;
+    try {
+      const res = await fetch(backendUrl + '/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name, email, role }),
+      });
+      if(!res.ok) throw new Error();
+      empName.value = '';
+      empEmail.value = '';
+      empRole.value = '';
+      loadEmployees();
+    } catch {
+      alert('Failed to add employee.');
+    }
+  };
+
+  checkSession();
+</script>
+</body>
+</html>
